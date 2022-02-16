@@ -1,0 +1,10 @@
+name: causal
+dependencies:
+- numpy
+- pandas
+- scikit-learn
+- scipy
+- pip:
+  - econml
+  - catboost
+  - lightgbm
