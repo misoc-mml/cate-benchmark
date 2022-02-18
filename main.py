@@ -1,6 +1,5 @@
 import os
 import time
-import math
 import random
 import logging
 import argparse
@@ -72,7 +71,7 @@ def get_parser():
     parser.add_argument('--cv', type=int, default=5)
 
     # Estimation
-    parser.add_argument('--em', type=str, dest='estimation_model', choices=['dml', 'dr', 'xl', 'tl', 'cf', 'ridge', 'lasso', 'kr', 'et', 'dt', 'cb', 'lgbm', 'dummy'])
+    parser.add_argument('--em', type=str, dest='estimation_model', choices=['dml', 'dr', 'xl', 'tl', 'cf', 'ridge', 'ridge-ipw', 'lasso', 'kr', 'kr-ipw', 'et', 'et-ipw', 'dt', 'dt-ipw', 'cb', 'cb-ipw', 'lgbm', 'lgbm-ipw', 'dummy'])
     parser.add_argument('--ebm', dest='estimation_base_model', type=str, choices=['ridge', 'lasso', 'kr', 'et', 'dt', 'cb', 'lgbm'], default='kr')
     parser.add_argument('--sfi', dest='save_features', action='store_true')
 
@@ -128,23 +127,23 @@ def estimation_preproc(train, test):
 
 def _get_classifier(name, options):
     result = None
-    if name == 'ridge':
+    if name in ('ridge', 'ridge-ipw'):
         result = RidgeCVClassifier(cv=options.cv)
     elif name == 'lasso':
         result = LassoLarsCVClassifier(cv=options.cv, n_jobs=1)
-    elif name == 'dt':
+    elif name in ('dt', 'dt-ipw'):
         params = {"max_leaf_nodes": [10, 20, 30, None], "max_depth": [5, 10, 20]}
         result = GridSearchCV(DecisionTreeClassifier(random_state=options.seed), param_grid=params, n_jobs=options.n_jobs, cv=options.cv)
-    elif name == 'et':
+    elif name in ('et', 'et-ipw'):
         params = {"max_leaf_nodes": [10, 20, 30, None], "max_depth": [5, 10, 20]}
         result = GridSearchCV(ExtraTreesClassifier(n_estimators=1000, bootstrap=True, random_state=options.seed, n_jobs=1), param_grid=params, n_jobs=options.n_jobs, cv=options.cv)
-    elif name == 'kr':
+    elif name in ('kr', 'kr-ipw'):
         params = {"alpha": [1e0, 1e-1, 1e-2, 1e-3], "gamma": np.logspace(-2, 2, 5), "kernel": ["rbf", "poly"], "degree": [2, 3, 4]}
         result = GridSearchCV(KernelRidgeClassifier(), n_jobs=options.n_jobs, scoring="neg_mean_squared_error", param_grid=params, cv=options.cv)
-    elif name == 'cb':
+    elif name in ('cb', 'cb-ipw'):
         params = {"depth": [6, 8, 10], "l2_leaf_reg": [1, 3, 10, 100]}
         result = GridSearchCV(CatBoostClassifier(iterations=1000, random_state=options.seed, verbose=False, thread_count=1), param_grid=params, n_jobs=options.n_jobs, cv=options.cv)
-    elif name == 'lgbm':
+    elif name in ('lgbm', 'lgbm-ipw'):
         params = {"max_depth": [5, 7, 10], "reg_lambda": [0.1, 0, 1, 5, 10]}
         result = GridSearchCV(LGBMClassifier(n_estimators=1000, n_jobs=1, random_state=options.seed), param_grid=params, n_jobs=options.n_jobs, cv=options.cv)
     else:
@@ -155,23 +154,23 @@ def _get_regressor(name, options):
     result = None
     if name == 'dummy':
         result = DummyRegressor()
-    elif name == 'ridge':
+    elif name in ('ridge', 'ridge-ipw'):
         result = RidgeCV(cv=options.cv)
     elif name == 'lasso':
         result = LassoLarsCV(cv=options.cv, n_jobs=1)
-    elif name == 'dt':
+    elif name in ('dt', 'dt-ipw'):
         params = {"max_leaf_nodes": [10, 20, 30, None], "max_depth": [5, 10, 20]}
         result = GridSearchCV(DecisionTreeRegressor(random_state=options.seed), param_grid=params, scoring="neg_mean_squared_error", n_jobs=options.n_jobs, cv=options.cv)
-    elif name == 'et':
+    elif name in ('et', 'et-ipw'):
         params = {"max_leaf_nodes": [10, 20, 30, None], "max_depth": [5, 10, 20]}
         result = GridSearchCV(ExtraTreesRegressor(n_estimators=1000, bootstrap=True, random_state=options.seed, n_jobs=1), param_grid=params, scoring="neg_mean_squared_error", n_jobs=options.n_jobs, cv=options.cv)
-    elif name == 'kr':
+    elif name in ('kr', 'kr-ipw'):
         params = {"alpha": [1e0, 1e-1, 1e-2, 1e-3], "gamma": np.logspace(-2, 2, 5), "kernel": ["rbf", "poly"], "degree": [2, 3, 4]}
         result = GridSearchCV(KernelRidge(), n_jobs=options.n_jobs, scoring="neg_mean_squared_error", param_grid=params, cv=options.cv)
-    elif name == 'cb':
+    elif name in ('cb', 'cb-ipw'):
         params = {"depth": [6, 8, 10], "l2_leaf_reg": [1, 3, 10, 100]}
         result = GridSearchCV(CatBoostRegressor(iterations=1000, random_state=options.seed, verbose=False, thread_count=1), param_grid=params, scoring="neg_mean_squared_error", n_jobs=options.n_jobs, cv=options.cv)
-    elif name == 'lgbm':
+    elif name in ('lgbm', 'lgbm-ipw'):
         params = {"max_depth": [5, 7, 10], "reg_lambda": [0.1, 0, 1, 5, 10]}
         result = GridSearchCV(LGBMRegressor(n_estimators=1000, n_jobs=1, random_state=options.seed), param_grid=params, scoring="neg_mean_squared_error", n_jobs=options.n_jobs, cv=options.cv)
     else:
@@ -199,6 +198,13 @@ def _get_model(options):
         fit_type = 'sklearn'
     return result, fit_type
 
+def _get_ps_weights(x, t, options, eps=0.0001):
+    z = np.squeeze(t)
+    clf = _get_classifier(options.estimation_model, options)
+    clf.fit(x, z)
+    e = clf.predict_proba(x).T[1].T + eps
+    return z / e + ((1.0 - z) / (1.0 - e))
+
 def estimate(train, test, options):
     X_train = train[0]
     t_train = train[1].flatten()
@@ -219,7 +225,11 @@ def estimate(train, test, options):
         te_test = model.predict(X_test)
         result = te_tr, te_test
     else: # 'sklearn'
-        model.fit(Xt_train, y_train)
+        if 'ipw' in options.estimation_model:
+            weights = _get_ps_weights(X_train, t_train, options)
+            model.fit(Xt_train, y_train, sample_weight=weights)
+        else:
+            model.fit(Xt_train, y_train)
         (xta_tr, xtb_tr), (xta_test, xtb_test) = estimation_preproc(train, test)
         ya_tr = model.predict(xta_tr)
         yb_tr = model.predict(xtb_tr)

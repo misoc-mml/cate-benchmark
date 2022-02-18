@@ -1,4 +1,4 @@
-name: causal
+name: cate-bench
 dependencies:
 - numpy
 - pandas
