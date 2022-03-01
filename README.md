@@ -33,3 +33,7 @@ The code can be easily extended to use more estimators.
 2. Edit 'get_parser()': add new key to 'estimation_model'.
 3. Edit '_get_model()': using the new key, return an instance of your model.
 4. Edit 'estimate(): train your model on the data and provide predictions.
+
+## Other projects
+Projects using the CATE benchmark:
+- [Undersmoothing Data Augmentation](https://github.com/misoc-mml/undersmoothing-data-augmentation)
