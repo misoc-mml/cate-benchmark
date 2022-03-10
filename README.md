@@ -18,6 +18,29 @@ The 'experiments' folder contains a few example scripts that run the code, rangi
 
 By default, any files created as part of running the scripts are saved under 'results'.
 
+### Example - 'basic'
+Go to 'experiments' and run the basic script:
+
+`bash basic.sh`
+
+This script tests the Lasso model against one iteration of the IHDP data set. You should see relevant metrics and the performance obtained by the estimator printed in the console. In the same script, it is easy to change the number of iterations, the data set or the estimator.
+
+### Example - 'advanced'
+Go to 'experiments' and run the advanced script:
+
+`bash advanced.sh`
+
+This script covers more estimators and 10 iterations of IHDP. Once it's done, you should see a summary similar to the following one:
+
+![](cate_bench_advanced.png)
+
+You can find the content of the summary in 'results/combined.csv'.
+
+### Example - 'extensive'
+This script tests almost all estimators against all four data sets. Depending on the computational power of your machine, this script may take **days** or even **weeks** to complete. To run the script, go to 'experiments' and run:
+
+`bash extensive.sh`
+
 ## Analysing results
 A separate directory is created per each selected estimator when running the scripts to store various results. The following result files are usually created:
 - info.log (intermediate results as the script is being executed)
