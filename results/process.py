@@ -12,6 +12,7 @@ def get_parser():
     parser.add_argument('--data_path', type=str, default='./')
     parser.add_argument('--dtype', type=str, choices=['ihdp', 'jobs', 'news', 'twins'])
     parser.add_argument('-o', type=str, dest='output_path', default='./')
+    parser.add_argument('--show', action='store_true', default=False)
     
     parser.add_argument('--sm', type=str, dest='simple_models', nargs='+')
     parser.add_argument('--mm', type=str, dest='meta_models', nargs='+')
@@ -40,7 +41,7 @@ def _get_scores(path, d_name, method, columns, score_type):
     return result
 
 def _merge_scores(scores1, scores2):
-    return [f'${s1:.3f}\pm{s2:.3f}$' for s1, s2 in zip(scores1, scores2)]
+    return [f'{s1:.3f} +/- {s2:.3f}' for s1, s2 in zip(scores1, scores2)]
 
 def _process_results(path, d_name, models, columns):
     m1s, m2s, bms = models
@@ -94,3 +95,6 @@ if __name__ == "__main__":
     df_results = load_results(options.data_path, options.dtype, models, metrics)
 
     df_results.to_csv(os.path.join(options.output_path, 'combined.csv'), index=False)
+
+    if options.show:
+        print(df_results)

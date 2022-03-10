@@ -1,7 +1,7 @@
-ITER=10
-simple=("dummy" "ridge-ipw" "lasso" "kr-ipw" "lgbm")
-meta=("dml" "tl")
-base=("ridge" "lasso")
+ITER=1000
+simple=("dummy" "lr" "lr-ipw" "ridge" "ridge-ipw" "lasso" "kr" "kr-ipw" "dt" "dt-ipw" "et" "et-ipw" "lgbm" "lgbm-ipw" "cb" "cb-ipw" "cf")
+meta=("dml" "dr" "tl" "xl")
+base=("lr" "ridge" "lasso" "kr" "dt" "et" "lgbm" "cb")
 
 # Standalone estimators
 for MODEL in ${simple[@]}
