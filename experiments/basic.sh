@@ -1,1 +1,1 @@
-python ../main.py --data_path ../datasets/IHDP --dtype ihdp --iter 1 --em lasso
+python -W ignore ../main.py --data_path ../datasets/IHDP --dtype ihdp --iter 1 --em lasso

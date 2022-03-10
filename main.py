@@ -14,7 +14,7 @@ from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.dummy import DummyRegressor
 from catboost import CatBoostRegressor, CatBoostClassifier
-from sklearn.linear_model import LassoLarsCV, RidgeCV
+from sklearn.linear_model import LassoLarsCV, RidgeCV, LinearRegression, LogisticRegressionCV
 from sklearn.model_selection import GridSearchCV
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from lightgbm import LGBMRegressor, LGBMClassifier
@@ -71,8 +71,9 @@ def get_parser():
     parser.add_argument('--cv', type=int, default=5)
 
     # Estimation
-    parser.add_argument('--em', type=str, dest='estimation_model', choices=['dml', 'dr', 'xl', 'tl', 'cf', 'ridge', 'ridge-ipw', 'lasso', 'kr', 'kr-ipw', 'et', 'et-ipw', 'dt', 'dt-ipw', 'cb', 'cb-ipw', 'lgbm', 'lgbm-ipw', 'dummy'])
-    parser.add_argument('--ebm', dest='estimation_base_model', type=str, choices=['ridge', 'lasso', 'kr', 'et', 'dt', 'cb', 'lgbm'], default='kr')
+    parser.add_argument('--em', type=str, dest='estimation_model', choices=['dml', 'dr', 'xl', 'tl', 'cf', 'ridge', 'ridge-ipw', 'lasso', 'kr', 'kr-ipw', 'et', 'et-ipw', 'dt', 'dt-ipw', 'cb', 'cb-ipw', 'lgbm', 'lgbm-ipw', 'lr', 'lr-ipw', 'dummy'])
+    parser.add_argument('--ebm', dest='estimation_base_model', type=str, choices=['lr', 'ridge', 'lasso', 'kr', 'et', 'dt', 'cb', 'lgbm'], default='lr')
+    parser.add_argument('--ipw', dest='ipw_model', type=str, choices=['lr', 'kr', 'dt', 'et', 'cb', 'lgbm'], default='lr')
     parser.add_argument('--sfi', dest='save_features', action='store_true')
 
     return parser
@@ -129,6 +130,8 @@ def _get_classifier(name, options):
     result = None
     if name in ('ridge', 'ridge-ipw'):
         result = RidgeCVClassifier(cv=options.cv)
+    elif name == 'lr':
+        result = LogisticRegressionCV(cv=options.cv, n_jobs=1, random_state=options.seed)
     elif name == 'lasso':
         result = LassoLarsCVClassifier(cv=options.cv, n_jobs=1)
     elif name in ('dt', 'dt-ipw'):
@@ -156,6 +159,8 @@ def _get_regressor(name, options):
         result = DummyRegressor()
     elif name in ('ridge', 'ridge-ipw'):
         result = RidgeCV(cv=options.cv)
+    elif name == 'lr':
+        result = LinearRegression(n_jobs=1)
     elif name == 'lasso':
         result = LassoLarsCV(cv=options.cv, n_jobs=1)
     elif name in ('dt', 'dt-ipw'):
@@ -200,7 +205,7 @@ def _get_model(options):
 
 def _get_ps_weights(x, t, options, eps=0.0001):
     z = np.squeeze(t)
-    clf = _get_classifier(options.estimation_model, options)
+    clf = _get_classifier(options.ipw_model, options)
     clf.fit(x, z)
     e = clf.predict_proba(x).T[1].T + eps
     return z / e + ((1.0 - z) / (1.0 - e))
